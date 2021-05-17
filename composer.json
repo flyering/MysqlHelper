@@ -1,0 +1,26 @@
+{
+    "name": "wpfly/mysqlhelper",
+    "description": "Mysql操作类，PDO链式调用封装",
+    "keywords": ["mysql", "pdo", "链式调用"],
+    "homepage": "https://www.wpfly.cn/",
+    "type": "library",
+    "require": {
+        "php": ">=5.4.0",
+        "ext-pdo_mysql": "1.0.2"
+    },
+    "require-dev": {
+        "php": ">=5.4.0",
+        "ext-pdo_mysql": "1.0.2"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "wpfly",
+            "email": "wpfly2020@qq.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {"wpfly\\": "src"}
+    }
+}
