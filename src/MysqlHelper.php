@@ -86,7 +86,7 @@ class MysqlHelper
                 \PDO::ATTR_PERSISTENT => $this->_config['persistent'],
                 \PDO::MYSQL_ATTR_INIT_COMMAND => implode('', $init_command),
                 \PDO::ATTR_EMULATE_PREPARES => false, 
-                \PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC
        );
         $dsn = "mysql:host={$this->_config['host']};port={$this->_config['port']};dbname={$this->_config['database']}";
         $this->_connecttion = new \PDO($dsn, $this->_config['username'], $this->_config['password'], $options);
