@@ -37,6 +37,10 @@ class MysqlHelper
     private $_exec_affected_rows = 0;
     private function __construct()
     {
+        if(!class_exists('PDO'))
+        {
+            throw new \Exception('Please check whether installed the pdo extension.');
+        }
     }
     private function __clone()
     {
@@ -79,13 +83,13 @@ class MysqlHelper
         // PDO配置，ATTR_EMULATE_PREPARES = false 禁用预处理模拟，是防注入的关键。 
         $init_command[] = "SET NAMES {$this->_config['charset']};";
         $options = array (
-                PDO::ATTR_PERSISTENT => $this->_config['persistent'],
-                PDO::MYSQL_ATTR_INIT_COMMAND => implode('', $init_command),
-                PDO::ATTR_EMULATE_PREPARES => false, 
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                \PDO::ATTR_PERSISTENT => $this->_config['persistent'],
+                \PDO::MYSQL_ATTR_INIT_COMMAND => implode('', $init_command),
+                \PDO::ATTR_EMULATE_PREPARES => false, 
+                \PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
        );
         $dsn = "mysql:host={$this->_config['host']};port={$this->_config['port']};dbname={$this->_config['database']}";
-        $this->_connecttion = new PDO($dsn, $this->_config['username'], $this->_config['password'], $options);
+        $this->_connecttion = new \PDO($dsn, $this->_config['username'], $this->_config['password'], $options);
     }
     /**
      * 获取PDO实例，以便自己实现复杂查询
