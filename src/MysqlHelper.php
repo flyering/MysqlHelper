@@ -50,13 +50,13 @@ class MysqlHelper
      *
      * @return MysqlHelper
      */
-    public static function get_instance($server_id = 0, $force = false)
+    public static function get_instance($id = 0, $force = false)
     {
-        if (!isset(self::$_instance[$server_id]) || $force)
+        if (!isset(self::$_instance[$id]) || $force)
         {
-            self::$_instance[$server_id] = new self();
+            self::$_instance[$id] = new self();
         }
-        return self::$_instance[$server_id];
+        return self::$_instance[$id];
     }
     /**
      * 连接数据库
