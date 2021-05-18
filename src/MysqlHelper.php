@@ -8,7 +8,7 @@ namespace wpfly;
  * @author wpfly
  * @link https://www.wpfly.cn/
  *
- * @version 1.5
+ * @version 1.0
  */
 class MysqlHelper
 {

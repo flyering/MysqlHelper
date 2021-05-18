@@ -5,12 +5,10 @@
     "homepage": "https://www.wpfly.cn/",
     "type": "library",
     "require": {
-        "php": ">=5.4.0",
-        "ext-pdo_mysql": "1.0.2"
+        "php": ">=5.4.0"
     },
     "require-dev": {
-        "php": ">=5.4.0",
-        "ext-pdo_mysql": "1.0.2"
+        "php": ">=5.4.0"
     },
     "license": "MIT",
     "authors": [
