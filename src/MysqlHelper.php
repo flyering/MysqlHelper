@@ -1,7 +1,7 @@
 <?php
 namespace wpfly;
 /**
- * Mysql链式调用PDO封装类，简化基本查询
+ * Mysql链式调用PDO封装类，简化基本使用
  * 预处理方式真正防止SQL注入
  * 使用更多PDO功能， 可以通过get_connecttion()返回PDO对象自行实现
  *
