@@ -1,7 +1,7 @@
 <?php
 namespace wpfly;
 /**
- * PDO链式调用封装类，简化基本查询
+ * Mysql链式调用PDO封装类，简化基本查询
  * 预处理方式真正防止SQL注入
  * 使用更多PDO功能， 可以通过get_connecttion()返回PDO对象自行实现
  *
@@ -31,9 +31,9 @@ class MysqlHelper
     private $_sql = '';
     private $_where = '';
     private $_order = '';
-    private $_limit = '';
+    private $_limit_length = 0;
+    private $_limit_begin = 0;
     private $_data = array ();
-    private $_fetch_error = false;
     private $_exec_affected_rows = 0;
     private function __construct()
     {
@@ -80,7 +80,7 @@ class MysqlHelper
         {
             throw new \Exception('Database name cannot be empty.');
         }
-        // PDO配置，ATTR_EMULATE_PREPARES = false 禁用预处理模拟，是防注入的关键。 
+        // PDO配置，ATTR_EMULATE_PREPARES = false 禁用模拟预处理，启用真正预处理，是防注入的关键。 
         $init_command[] = "SET NAMES {$this->_config['charset']};";
         $options = array (
                 \PDO::ATTR_PERSISTENT => $this->_config['persistent'],
@@ -109,38 +109,38 @@ class MysqlHelper
         $this->_sql = '';
         $this->_where = '';
         $this->_order = '';
-        $this->_limit = '';
+        $this->_limit_length = 0;
+        $this->_limit_begin = 0;
         $this->_data = array ();
         $this->_pdo_statement = null;
         $this->_exec_affected_rows = 0;
-        $this->_fetch_error = false;
     }
     /**
      * 查询链select部分
      *
-     * @param string $talbe
+     * @param string $table
      * @param string|array $field
-     * @return PDOHelper
+     * @return MysqlHelper
      */
-    function select($talbe, $field = '*', $where_str = '', $parameter = null)
+    function select($table, $field = '*', $where_str = '', $where_parameter = null)
     {
         $this->init('select');
         $field_str = is_array($field) ? '`' . implode('`,`', $field) . '`' : $field;
-        $this->_sql = 'SELECT ' . $field_str . ' FROM `' . $this->_config['prefix'] . $talbe . '`';
-        if (! empty($where_str))
+        $this->_sql = 'SELECT ' . $field_str . ' FROM `' . $this->_config['prefix'] . $table . '`';
+        if (!empty($where_str))
         {
-            $this->where($where_str, $parameter);
+            $this->where($where_str, $where_parameter);
         }
         return $this;
     }
     /**
      * 查询链insert部分，支持单行和多行
      *
-     * @param string $talbe
+     * @param string $table
      * @param array $data
-     * @return PDOHelper
+     * @return MysqlHelper
      */
-    function insert($talbe, $data)
+    function insert($table, $data)
     {
         $this->init('insert');
         $first = current($data);
@@ -151,7 +151,7 @@ class MysqlHelper
             $field_count = count($fields);
             $values = substr(str_repeat('?,', $field_count), 0, - 1);
             $values_all = substr(str_repeat('(' . $values . '),', count($data)), 0, - 1);
-            $this->_sql = 'INSERT INTO `' . $this->_config['prefix'] . $talbe . '`(`' . implode('`,`', $fields) . '`) VALUES' . $values_all;
+            $this->_sql = 'INSERT INTO `' . $this->_config['prefix'] . $table . '`(`' . implode('`,`', $fields) . '`) VALUES' . $values_all;
 
             foreach ($data as $item)
             {
@@ -170,7 +170,7 @@ class MysqlHelper
             // 单行插入
             $fields = array_keys($data);
             $values = substr(str_repeat('?,', count($fields)), 0, - 1);
-            $this->_sql = 'INSERT INTO `' . $this->_config['prefix'] . $talbe . '`(`' . implode('`,`', $fields) . '`) VALUES(' . $values . ')';
+            $this->_sql = 'INSERT INTO `' . $this->_config['prefix'] . $table . '`(`' . implode('`,`', $fields) . '`) VALUES(' . $values . ')';
             $this->_data = $data;
         }
         return $this;
@@ -178,27 +178,27 @@ class MysqlHelper
     /**
      * 查询链replace部分，只支持单行
      *
-     * @param string $talbe
+     * @param string $table
      * @param array $data
-     * @return PDOHelper
+     * @return MysqlHelper
      */
-    function replace($talbe, $data)
+    function replace($table, $data)
     {
         $this->init('replace');
         $fields = array_keys($data);
         $values = substr(str_repeat('?,', count($fields)), 0, - 1);
-        $this->_sql = 'REPLACE INTO `' . $this->_config['prefix'] . $talbe . '`(`' . implode('`,`', $fields) . '`) VALUES(' . $values . ')';
+        $this->_sql = 'REPLACE INTO `' . $this->_config['prefix'] . $table . '`(`' . implode('`,`', $fields) . '`) VALUES(' . $values . ')';
         $this->_data = $data;
         return $this;
     }
     /**
      * 查询链update部分
      *
-     * @param string $talbe
+     * @param string $table
      * @param array $data
-     * @return PDOHelper
+     * @return MysqlHelper
      */
-    function update($talbe, $data, $where_str = '', $parameter = null)
+    function update($table, $data, $where_str = '', $where_parameter = null)
     {
         $this->init('update');
         $fields = array ();
@@ -215,26 +215,26 @@ class MysqlHelper
                 $this->_data[] = $v;
             }
         }
-        $this->_sql = 'UPDATE `' . $this->_config['prefix'] . $talbe . '` SET ' . implode(',', $fields);
-        if (! empty($where_str))
+        $this->_sql = 'UPDATE `' . $this->_config['prefix'] . $table . '` SET ' . implode(',', $fields);
+        if (!empty($where_str))
         {
-            $this->where($where_str, $parameter);
+            $this->where($where_str, $where_parameter);
         }
         return $this;
     }
     /**
      * 查询链delete部分
      *
-     * @param string $talbe
-     * @return PDOHelper
+     * @param string $table
+     * @return MysqlHelper
      */
-    function delete($talbe, $where_str = '', $parameter = null)
+    function delete($table, $where_str = '', $where_parameter = null)
     {
         $this->init('delete');
-        $this->_sql = 'DELETE FROM `' . $this->_config['prefix'] . $talbe . '`';
-        if (! empty($where_str))
+        $this->_sql = 'DELETE FROM `' . $this->_config['prefix'] . $table . '`';
+        if (!empty($where_str))
         {
-            $this->where($where_str, $parameter);
+            $this->where($where_str, $where_parameter);
         }
         return $this;
     }
@@ -243,23 +243,27 @@ class MysqlHelper
      *
      * @param string $str
      * @param mixed $parameter
-     * @return PDOHelper
+     * @return MysqlHelper
      */
-    function where($where_str = '', $parameter = null)
+    function where($str = '', $parameter = null)
     {
-        if (! empty($this->_where))
+        if (!empty($this->_where))
         {
             return $this;
         }
+        $this->_where = " WHERE $str";
         if ($parameter !== null)
         {
             if (is_array($parameter))
             {
-                // 根据实际传递的参数数目，替换in语句中的？，只能有一个in语句
-                $c1 = substr_count($where_str, '?');
+                // 根据传递的参数数目，补齐in语句省略的“?”。如果需要自动补齐，只支持一个in语句。
+                $c1 = substr_count($this->_where, '?');
                 $c2 = count($parameter);
-                $replace = 'in(' . substr(str_repeat('?,', $c2 - $c1 + 1), 0, - 1) . ')';
-                $where_str = str_replace('in(?)', $replace, $where_str);
+                if($c2 > $c1)
+                {
+                    $replace = 'in(' . substr(str_repeat('?,', $c2 - $c1 + 1), 0, - 1) . ')';
+                    $this->_where = str_replace('in(?)', $replace, $this->_where);
+                }
                 foreach ($parameter as $v)
                 {
                     $this->_data[] = $v;
@@ -270,14 +274,13 @@ class MysqlHelper
                 $this->_data[] = $parameter;
             }
         }
-        $this->_where = " WHERE $where_str";
         return $this;
     }
     /**
      * 查询链order部分
      *
      * @param string $str
-     * @return PDOHelper
+     * @return MysqlHelper
      */
     function order($str)
     {
@@ -289,19 +292,20 @@ class MysqlHelper
      *
      * @param number $length
      * @param number $begin
-     * @return PDOHelper
+     * @return MysqlHelper
      */
     function limit($length = 10, $begin = 0)
     {
-        $this->_limit = " LIMIT $begin,$length";
+        $this->_limit_length = $length;
+        $this->_limit_begin = $begin;
         return $this;
     }
     /**
-     * 直接sql语句查询
+     * 直接sql语句查询，预处理方式
      *
      * @param string $sql
      * @param mixed $parameter
-     * @return PDOHelper
+     * @return MysqlHelper
      */
     function sql($sql, $parameter = null)
     {
@@ -309,17 +313,20 @@ class MysqlHelper
         if ($parameter !== null)
         {
             if (is_array($parameter))
-            {
-                $this->_data = $parameter;
-                // 根据实际传递的参数数目，替换in语句中的？，只能有一个in语句
+            {                
+                // 根据传递的参数数目，补齐in语句省略的“?”。如果需要自动补齐，只支持一个in语句。
                 $c1 = substr_count($sql, '?');
                 $c2 = count($parameter);
-                $replace = 'in(' . substr(str_repeat('?,', $c2 - $c1 + 1), 0, - 1) . ')';
-                $sql = str_replace('in(?)', $replace, $sql);
+                if($c2 > $c1)
+                {
+                    $replace = 'in(' . substr(str_repeat('?,', $c2 - $c1 + 1), 0, - 1) . ')';
+                    $sql = str_replace('in(?)', $replace, $sql);
+                }
+                $this->_data = $parameter;
             }
             else
             {
-                $this->_data[] = $parameter;
+                $this->_data = [$parameter];
             }
         }
         // 自动为表名加前缀。有此需要时，请在表名前面加下划线，并用反单引号将下划线及表名包围
@@ -328,11 +335,11 @@ class MysqlHelper
         return $this;
     }
     /**
-     * 不带参数的便捷查询，非预处理方式，注意防范sql注入
-     * 虽然支持全部语句，但返回结果集，主要用于查询
+     * 不带参数的快捷查询，非预处理方式，注意防范sql注入
+     * 虽然支持全部语句，返回结果集，主要用于查询
      *
      * @param string $command
-     * @return PDOHelper
+     * @return MysqlHelper
      */
     function query($command)
     {
@@ -343,11 +350,11 @@ class MysqlHelper
         return $this;
     }
     /**
-     * 不带参数的便捷执行，非预处理方式，注意防范sql注入
-     * 支持除select语句外的其他语句，但只返回影响行数，主要用于插入、更新、删除
+     * 不带参数的快捷执行，非预处理方式，注意防范sql注入
+     * 支持除select语句外的其他语句，只返回影响行数，主要用于插入、更新、删除
      *
      * @param string $command
-     * @return PDOHelper
+     * @return MysqlHelper
      */
     function exec($command)
     {
@@ -357,157 +364,147 @@ class MysqlHelper
         $this->_sql = $command;
         return $this;
     }
-    private function combine_sql()
+    /**
+     * 获取预处理sql语句
+     *
+     * @return string
+     */
+    function get_sql()
     {
         switch ($this->_sql_type)
         {
-        	case 'select' :
-        	    $this->_sql .= $this->_where . $this->_order . $this->_limit;
-        	    $this->_sql_type = 'sql';
-        	    break;
-        	case 'insert' :
-        	case 'replace' :
-        	    $this->_sql_type = 'sql';
+            case 'select' :
+                $limit = ($this->_limit_length > 0) ? " LIMIT {$this->_limit_begin},{$this->_limit_length}" : "";
+        	    $sql = $this->_sql . $this->_where . $this->_order . $limit;
         	    break;
         	case 'update' :
         	case 'delete' :
-        	    $this->_sql .= $this->_where;
-        	    $this->_sql_type = 'sql';
-        	    break;
+                $limit = ($this->_limit_length > 0) ? " LIMIT {$this->_limit_length}" : "";
+        	    $sql = $this->_sql . $this->_where . $this->_order . $limit;
+                break;
+            default:
+                $sql = $this->_sql;
         }
+        return $sql;
+    }
+    /**
+     * 获取预处理提交参数
+     *
+     * @return string
+     */
+    function get_parameters()
+    {
+        return $this->_data;
     }
     /**
      * 执行查询
      *
-     * @return boolean
      */
     function execute()
     {
-        if (! in_array($this->_sql_type, array (
-                'sql',
-                'query',
-                'exec'
-       )))
+        if (empty($this->_connecttion))
         {
-            $this->combine_sql();
+            throw new \Exception('The database is not connected.');
         }
-        if (empty($this->_sql))
+        $sql = $this->get_sql();
+        if (empty($sql))
         {
             throw new \Exception('Can not find SQL statement.');
         }
-        if (! $this->_connecttion)
+        if ($this->_sql_type == 'query')
         {
-            throw new \Exception('Connection cannot be use.');
-        }
-        if ($this->_sql_type == 'sql')
-        {
-            // 预处理
-            $this->_pdo_statement = $this->_connecttion->prepare($this->_sql);
-            if (! $this->_pdo_statement)
+            $this->_pdo_statement = $this->_connecttion->query($sql);
+            if (!$this->_pdo_statement)
             {
                 $err = $this->_connecttion->errorInfo();
-                throw new \Exception("准备错误[{$err[0]}/{$err[1]}/{$err[2]}/{$this->_sql}]");
-            }
-            // 绑定参数
-            $i = 1;
-            foreach ($this->_data as $data)
-            {
-                if (! $this->_pdo_statement->bindValue($i, $data))
-                {
-                    $err = $this->_pdo_statement->errorInfo();
-                    throw new \Exception("绑定错误[{$err[0]}/{$err[1]}/{$err[2]}/{$this->_sql}]");
-                }
-                ++ $i;
-            }
-            // 提交数据并执行
-            if ($this->_pdo_statement->execute())
-            {
-                return true;
-            }
-            else
-            {
-                $err = $this->_pdo_statement->errorInfo();
-                throw new \Exception("查询错误[{$err[0]}/{$err[1]}/{$err[2]}/{$this->_sql}]");
-            }
-        }
-        elseif ($this->_sql_type == 'query')
-        {
-            if ($this->_pdo_statement = $this->_connecttion->query($this->_sql))
-            {
-                return true;
-            }
-            else
-            {
-                $err = $this->_connecttion->errorInfo();
-                throw new \Exception("查询错误[{$err[0]}/{$err[1]}/{$err[2]}/{$this->_sql}]");
+                throw new \Exception("query错误[{$err[0]}/{$err[1]}/{$err[2]}/{$sql}]");
             }
         }
         elseif ($this->_sql_type == 'exec')
         {
-            $this->_exec_affected_rows = $this->_connecttion->exec($this->_sql);
-            return $this->_exec_affected_rows === false ? false : true;
+            $result = $this->_connecttion->exec($sql);
+            if($result === false)
+            {
+                $err = $this->_connecttion->errorInfo();
+                throw new \Exception("exec错误[{$err[0]}/{$err[1]}/{$err[2]}/{$sql}]");
+            }
+            $this->_exec_affected_rows = $result;
         }
-        return false;
+        else
+        {
+            // 预处理
+            $this->_pdo_statement = $this->_connecttion->prepare($sql);
+            if (!$this->_pdo_statement)
+            {
+                $err = $this->_connecttion->errorInfo();
+                throw new \Exception("预处理错误[{$err[0]}/{$err[1]}/{$err[2]}/{$sql}]");
+            }
+            // 参数绑定
+            $i = 1;
+            foreach ($this->_data as $data)
+            {
+                if (!$this->_pdo_statement->bindValue($i, $data))
+                {
+                    $err = $this->_pdo_statement->errorInfo();
+                    throw new \Exception("参数绑定错误[{$err[0]}/{$err[1]}/{$err[2]}/{$sql}]");
+                }
+                ++ $i;
+            }
+            // 提交数据并执行
+            if (!$this->_pdo_statement->execute())
+            {
+                $err = $this->_pdo_statement->errorInfo();
+                throw new \Exception("execute错误[{$err[0]}/{$err[1]}/{$err[2]}/{$sql}]");
+            }
+        }
     }
     /**
      * 返回数据列表的二维关联数组
      *
-     * @return array{array{}} false
+     * @return array{array{}}
      */
     function fetch_all()
     {
-        if ($this->_sql_type != 'exec' && $this->execute())
+        if($this->_sql_type == 'exec')
         {
-            return $this->_pdo_statement->fetchAll();
+            throw new \Exception("The exec operation does not support to obtain the result set.");
         }
-        else
-        {
-            return false;
-        }
+        $this->execute();
+        return $this->_pdo_statement->fetchAll();
     }
     /**
      * 返回数据行的一维关联数组
      *
-     * @return array{} false
+     * @return array{}
      */
     function fetch_row()
     {
-        if ($this->_sql_type != 'exec' && $this->execute())
+        if($this->_sql_type == 'exec')
         {
-            $rs = $this->_pdo_statement->fetch();
-            if ($rs === false)
-            {
-                $this->_fetch_error = true;
-                return array ();
-            }
-            return $rs;
+            throw new \Exception("The exec operation does not support to obtain the result set.");
         }
-        else
-        {
-            return false;
-        }
+        $this->execute();
+        $rs = $this->_pdo_statement->fetch();
+        return $rs === false ? array() : $rs;
     }
     /**
      * 返回第1行第1列的值
-     * 执行错误或者查询结果为空时返回false，查询结果的内容请勿包含false
-     * 可通过is_cell_empty()判断false返回值是否由空查询结果造成
+     * 失败返回false，注意区分数据表中包含的false结果。
      *
      * @return mixed false
      */
-    function fetch_cell()
+    function fetch_cell($column_name = null)
     {
-        if ($this->_sql_type != 'exec' && $this->execute())
+        $row = $this->fetch_row();
+        if(empty($row)) return false;
+        if(is_null($column_name))
         {
-            $rs = $this->_pdo_statement->fetchColumn();
-            if ($rs === false)
-            {
-                $this->_fetch_error = true;
-            }
-            return $rs;
+            return current($row);
         }
         else
         {
-            return false;
+            if(empty($row[$column_name])) return false;
+            return $row[$column_name];
         }
     }
     /**
@@ -517,14 +514,8 @@ class MysqlHelper
      */
     function last_id()
     {
-        if ($this->execute())
-        {
-            return $this->_connecttion->lastInsertId();
-        }
-        else
-        {
-            return false;
-        }
+        $this->execute();
+        return $this->_connecttion->lastInsertId();
     }
     /**
      * 返回实际受影响的行数
@@ -533,24 +524,8 @@ class MysqlHelper
      */
     function affected_rows()
     {
-        if ($this->execute())
-        {
-            return $this->_sql_type == 'exec' ? $this->_exec_affected_rows : $this->_pdo_statement->rowCount();
-        }
-        else
-        {
-            return false;
-        }
-    }
-    /**
-     * 是否数据填充错误
-     * 可以用于判断：只获取单元格内容时，返回值false是否由空查询结果造成
-     *
-     * @return boolean
-     */
-    function is_fetch_error()
-    {
-        return $this->_fetch_error;
+        $this->execute();
+        return $this->_sql_type == 'exec' ? $this->_exec_affected_rows : $this->_pdo_statement->rowCount();
     }
     /**
      * 查询的唯一标识，可用作缓存key
@@ -559,25 +534,6 @@ class MysqlHelper
      */
     function get_hash()
     {
-        $this->combine_sql();
-        return sha1($this->_sql . json_encode($this->_data));
-    }
-    /**
-     * 获取预处理提交的SQL语句
-     *
-     * @return string
-     */
-    function get_sql()
-    {
-        return $this->_sql;
-    }
-    /**
-     * 获取预处理提交的参数
-     *
-     * @return string
-     */
-    function get_parameters()
-    {
-        return $this->_data;
+        return sha1($this->get_sql() . json_encode($this->_data));
     }
 }
